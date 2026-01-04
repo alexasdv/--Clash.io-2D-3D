@@ -1,1 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Clash.io - Multiplayer Battle</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        /* Встроенные стили */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Arial', sans-serif; 
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: white;
+            overflow: hidden;
+            height: 100vh;
+        }
+        
+        /* Экраны */
+        .screen { 
+            position: absolute; 
+            width: 100%; 
+            height: 100%; 
+            display: none;
+            justify-content: center;
+            align-items: center;
+            background: radial-gradient(circle at center, #0f3460 0%, #1a1a2e 100%);
+        }
+        .screen.active { display: flex; }
+        
+        /* Меню */
+        .menu { text-align: center; padding: 30px; max-width: 600px; }
+        .title { margin-bottom: 40px; }
+        .title h1 { 
+            font-size: 4em; 
+            background: linear-gradient(45deg, #ff0080, #ff8c00, #40e0d0);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            text-shadow: 0 0 20px rgba(255,255,255,0.1);
+        }
+        .title p { color: #a0a0c0; font-size: 1.2em; }
+        
+        /* Выбор цвета */
+        .color-picker { margin: 25px 0; }
+        .colors { display: flex; gap: 15px; justify-content: center; margin-top: 10px; }
+        .color { width: 40px; height: 40px; border-radius: 50%; cursor: pointer; border: 3px solid transparent; }
+        .color:hover { transform: scale(1.1); }
+        .color.active { border-color: white; box-shadow: 0 0 15px white; }
+        
+        /* Кнопки */
+        .btn { 
+            background: linear-gradient(45deg, #ff416c, #ff4b2b);
+            border: none; color: white; 
+            padding: 15px 40px; 
+            font-size: 1.2em; 
+            border-radius: 50px;
+            cursor: pointer;
+            margin: 10px;
+            transition: all 0.3s;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+        .btn:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(255,65,108,0.3); }
+        .btn:active { transform: translateY(-1px); }
+        
+        /* Игровое поле */
+        #gameCanvas { 
+            display: block; 
+            background: #0a0a1a;
+            box-shadow: 0 0 50px rgba(0,0,0,0.5);
+        }
+        
+        /* HUD */
+        .hud {
+            position: absolute;
+            top: 20px;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 30px;
+            pointer-events: none;
+        }
+        .hud-item {
+            background: rgba(0,0,0,0.7);
+            padding: 10px 20px;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+        }
+        
+        /* Миникарта */
+        .minimap {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            width: 150px;
+            height: 150px;
+            background: rgba(0,0,0,0.7);
+            border-radius: 50%;
+            border: 2px solid #00ff00;
+            overflow: hidden;
+        }
+        
+        /* Адаптивность */
+        @media (max-width: 768px) {
+            .title h1 { font-size: 2.5em; }
+            .btn { padding: 12px 30px; font-size: 1em; }
+            .colors { gap: 10px; }
+            .color { width: 35px; height: 35px; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Главное меню -->
+    <div id="menu" class="screen active">
+        <div class="menu">
+            <div class="title">
+                <h1>CLASH<span style="color:#ff0080">.IO</span></h1>
+                <p>Dominate the battlefield. Grow. Survive.</p>
+            </div>
+            
+            <div class="color-picker">
+                <h3>Choose your color:</h3>
+                <div class="colors">
+                    <div class="color active" style="background:#ff0000" data-color="#ff0000"></div>
+                    <div class="color" style="background:#00ff00" data-color="#00ff00"></div>
+                    <div class="color" style="background:#0000ff" data-color="#0000ff"></div>
+                    <div class="color" style="background:#ffff00" data-color="#ffff00"></div>
+                    <div class="color" style="background:#ff00ff" data-color="#ff00ff"></div>
+                    <div class="color" style="background:#00ffff" data-color="#00ffff"></div>
+                </div>
+            </div>
+            
+            <div style="margin: 30px 0;">
+                <input type="text" id="playerName" 
+                       placeholder="Your Name" 
+                       maxlength="12"
+                       style="padding: 12px; border: 2px solid #444; border-radius: 5px; background: rgba(255,255,255,0.1); color: white; font-size: 1.1em; text-align: center; width: 200px;">
+            </div>
+            
+            <button id="playBtn" class="btn">
+                JOIN BATTLE
+            </button>
+            
+            <div style="margin-top: 40px; color: #888; font-size: 0.9em;">
+                <p>←→↑↓ or WASD to move | Mouse to aim | SPACE to split | Right click to shoot</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Игровой экран -->
+    <div id="gameScreen" class="screen">
+        <canvas id="gameCanvas"></canvas>
+        
+        <!-- Интерфейс -->
+        <div class="hud">
+            <div class="hud-item">
+                <div>SCORE: <span id="score">0</span></div>
+                <div>SIZE: <span id="size">20</span></div>
+            </div>
+            <div class="hud-item">
+                <div>PLAYERS: <span id="players">1</span></div>
+                <div>LEADER: <span id="leader">-</span></div>
+            </div>
+            <div class="hud-item">
+                <button id="splitBtn" style="background:#ff9900; pointer-events: all; cursor: pointer;">SPLIT</button>
+                <button id="shootBtn" style="background:#ff0080; pointer-events: all; cursor: pointer;">SHOOT</button>
+            </div>
+        </div>
+        
+        <!-- Миникарта -->
+        <div class="minimap" id="minimap"></div>
+        
+        <!-- Кнопка возврата -->
+        <button id="backBtn" style="position: absolute; bottom: 20px; left: 20px; background: rgba(0,0,0,0.5); color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">
+            ← MENU
+        </button>
+    </div>
 
+    <!-- Встроенный JavaScript -->
+    <script>
+        // Конфигурация игры
+        const CONFIG = {
+            CELL_MIN_SIZE: 10,
+            CELL_MAX_SIZE: 200,
+            FOOD_COUNT: 500,
+            FOOD_SIZE: 5,
+            VIRUS_SIZE: 50,
+            WORLD_SIZE: 4000,
+            SPLIT_COOLDOWN: 5000,
+            SHOOT_COOLDOWN: 2000
+        };
+
+        let canvas, ctx;
+        let player = { x: 0, y: 0, size: 20, color: '#ff0000', cells: [], name: 'Player' };
+        let foods = [];
+        let players = {};
+        let socket;
+        let mouse = { x: 0, y: 0 };
+        let keys = {};
+
+        // Инициализация
+        window.onload = function() {
+            canvas = document.getElementById('gameCanvas');
+            ctx = canvas.getContext('2d');
+            
+            setupCanvas();
+            setupEventListeners();
+            setupMenu();
+            
+            // Тестовая генерация еды
+            generateFood();
+            
+            // Игровой цикл
+            setInterval(gameLoop, 1000/60);
+        };
+
+        function setupCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+
+        function setupEventListeners() {
+            // Мышь
+            canvas.addEventListener('mousemove', (e) => {
+                mouse.x = e.clientX;
+                mouse.y = e.clientY;
+            });
+            
+            canvas.addEventListener('click', (e) => {
+                if (e.button === 0) splitCell();
+                if (e.button === 2) shoot();
+            });
+
+            // Клавиши
+            window.addEventListener('keydown', (e) => {
+                keys[e.key.toLowerCase()] = true;
+                if (e.key === ' ') splitCell();
+                if (e.key === 'f') shoot();
+            });
+            
+            window.addEventListener('keyup', (e) => {
+                keys[e.key.toLowerCase()] = false;
+            });
+
+            // Запрет контекстного меню
+            canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+            // Изменение размера окна
+            window.addEventListener('resize', setupCanvas);
+        }
+
+        function setupMenu() {
+            // Выбор цвета
+            document.querySelectorAll('.color').forEach(color => {
+                color.addEventListener('click', function() {
+                    document.querySelectorAll('.color').forEach(c => c.classList.remove('active'));
+                    this.classList.add('active');
+                    player.color = this.dataset.color;
+                });
+            });
+
+            // Кнопка игры
+            document.getElementById('playBtn').addEventListener('click', () => {
+                player.name = document.getElementById('playerName').value || 'Player';
+                document.getElementById('menu').classList.remove('active');
+                document.getElementById('gameScreen').classList.add('active');
+                connectToServer();
+            });
+
+            // Кнопки в игре
+            document.getElementById('splitBtn').addEventListener('click', splitCell);
+            document.getElementById('shootBtn').addEventListener('click', shoot);
+            document.getElementById('backBtn').addEventListener('click', () => {
+                document.getElementById('gameScreen').classList.remove('active');
+                document.getElementById('menu').classList.add('active');
+                if (socket) socket.disconnect();
+            });
+        }
+
+        function connectToServer() {
+            // Подключение к WebSocket серверу
+            socket = io();
+            
+            socket.on('connect', () => {
+                console.log('Connected to server');
+                socket.emit('join', { 
+                    name: player.name, 
+                    color: player.color 
+                });
+            });
+
+            socket.on('gameState', (state) => {
+                player = state.players[socket.id] || player;
+                foods = state.foods;
+                players = state.players;
+                
+                // Обновление интерфейса
+                document.getElementById('score').textContent = Math.floor(player.size * 10);
+                document.getElementById('size').textContent = Math.floor(player.size);
+                document.getElementById('players').textContent = Object.keys(players).length;
+                
+                // Лидер
+                let leader = Object.values(players).reduce((a, b) => a.size > b.size ? a : b);
+                document.getElementById('leader').textContent = leader.name;
+            });
+
+            socket.on('playerJoined', (data) => {
+                console.log(`${data.name} joined the game`);
+            });
+
+            socket.on('playerLeft', (id) => {
+                console.log(`Player ${id} left`);
+            });
+        }
+
+        function generateFood() {
+            for (let i = 0; i < CONFIG.FOOD_COUNT; i++) {
+                foods.push({
+                    x: Math.random() * CONFIG.WORLD_SIZE - CONFIG.WORLD_SIZE/2,
+                    y: Math.random() * CONFIG.WORLD_SIZE - CONFIG.WORLD_SIZE/2,
+                    size: CONFIG.FOOD_SIZE,
+                    color: `hsl(${Math.random() * 360}, 100%, 50%)`
+                });
+            }
+        }
+
+        function splitCell() {
+            if (player.size < 30) return;
+            player.size /= 2;
+            if (socket) socket.emit('split');
+        }
+
+        function shoot() {
+            if (socket) socket.emit('shoot', { x: mouse.x, y: mouse.y });
+        }
+
+        function gameLoop() {
+            // Очистка
+            ctx.fillStyle = '#0a0a1a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Сетка
+            drawGrid();
+            
+            // Камера следует за игроком
+            const cameraX = -player.x + canvas.width/2;
+            const cameraY = -player.y + canvas.height/2;
+            ctx.save();
+            ctx.translate(cameraX, cameraY);
+            
+            // Еда
+            foods.forEach(food => {
+                ctx.fillStyle = food.color;
+                ctx.beginPath();
+                ctx.arc(food.x, food.y, food.size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            
+            // Другие игроки
+            Object.values(players).forEach(p => {
+                if (p.id === socket?.id) return;
+                
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Ник
+                ctx.fillStyle = 'white';
+                ctx.font = '12px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(p.name, p.x, p.y - p.size - 5);
+            });
+            
+            // Игрок
+            ctx.fillStyle = player.color;
+            ctx.beginPath();
+            ctx.arc(player.x, player.y, player.size, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Обводка игрока
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            // Ник игрока
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 14px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(player.name + ' (YOU)', player.x, player.y - player.size - 10);
+            
+            ctx.restore();
+            
+            // Миникарта
+            drawMinimap();
+            
+            // Управление
+            handleInput();
+        }
+
+        function drawGrid() {
+            ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+            ctx.lineWidth = 1;
+            
+            const gridSize = 50;
+            const offsetX = player.x % gridSize;
+            const offsetY = player.y % gridSize;
+            
+            for (let x = -offsetX; x < canvas.width; x += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            
+            for (let y = -offsetY; y < canvas.height; y += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+        }
+
+        function drawMinimap() {
+            const minimap = document.getElementById('minimap');
+            const mmCtx = minimap.getContext('2d');
+            
+            mmCtx.clearRect(0, 0, minimap.width, minimap.height);
+            
+            // Фон
+            mmCtx.fillStyle = 'rgba(0,0,0,0.8)';
+            mmCtx.fillRect(0, 0, minimap.width, minimap.height);
+            
+            // Игрок
+            mmCtx.fillStyle = player.color;
+            mmCtx.beginPath();
+            mmCtx.arc(minimap.width/2, minimap.height/2, 3, 0, Math.PI * 2);
+            mmCtx.fill();
+            
+            // Другие игроки
+            Object.values(players).forEach(p => {
+                if (p.id === socket?.id) return;
+                const x = (p.x - player.x) / 50 + minimap.width/2;
+                const y = (p.y - player.y) / 50 + minimap.height/2;
+                
+                if (x >= 0 && x <= minimap.width && y >= 0 && y <= minimap.height) {
+                    mmCtx.fillStyle = p.color;
+                    mmCtx.beginPath();
+                    mmCtx.arc(x, y, 2, 0, Math.PI * 2);
+                    mmCtx.fill();
+                }
+            });
+        }
+
+        function handleInput() {
+            if (!socket) return;
+            
+            let dx = 0, dy = 0;
+            if (keys['w'] || keys['arrowup']) dy -= 1;
+            if (keys['s'] || keys['arrowdown']) dy += 1;
+            if (keys['a'] || keys['arrowleft']) dx -= 1;
+            if (keys['d'] || keys['arrowright']) dx += 1;
+            
+            if (dx !== 0 || dy !== 0) {
+                const speed = 10 / (player.size / 20);
+                const angle = Math.atan2(mouse.y - canvas.height/2, mouse.x - canvas.width/2);
+                
+                const moveX = Math.cos(angle) * speed;
+                const moveY = Math.sin(angle) * speed;
+                
+                socket.emit('move', {
+                    x: player.x + moveX + dx * speed,
+                    y: player.y + moveY + dy * speed
+                });
+            }
+        }
+    </script>
+</body>
+</html>
