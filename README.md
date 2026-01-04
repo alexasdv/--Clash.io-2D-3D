@@ -9,7 +9,7 @@ Click "JOIN BATTLE" and start playing!
 # Open in browser: http://localhost:3000
 Deploy Your Own Instance
 https://render.com/images/deploy-to-render-button.svg
-https://replit.com/badge/github/yourusername/clash-io
+https://replit.com/badge/github/alexasdv/clash-io
 
 🎮 How to Play
 Controls
