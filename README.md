@@ -13,7 +13,7 @@ Live Demo • GitHub
 
 Запустить локально
 bash
-git clone https://github.com/alexasdx/clash-io.git
+git clone https://github.com/alexasdv/clash-io.git
 cd clash-io
 npm install
 npm start
